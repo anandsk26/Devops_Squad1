@@ -1,1 +1,99 @@
-
+pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven 3.6.3'
+        
+    }
+    
+    stages {
+        
+        stage('Checkout') {
+            steps {
+                echo 'Entered inside my checkout'
+                checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/anandsk26/Docker-Demo.git']]])
+            }
+        }
+        
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Checkout successfull!!"
+            }
+        }
+        
+        stage('Run sonarqube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Code Analysis successfull!!"
+            }
+        }
+        stage('Build') {
+            steps {
+                echo 'Entered inside my Build'
+                sh 'mvn package -f pom.xml'
+            }
+        }
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Build successfull!!"
+            }
+        }
+        stage('Upload Artifact') {
+            steps {
+                nexusArtifactUploader artifacts: [
+		    [
+		        artifactId: 'proj3', 
+		        classifier: '', 
+		        file: '/var/lib/jenkins/workspace/Squad1_Declarative/project/target/project-1.0-RAMA.war',
+		        type: 'war'
+		    ]
+	    ],
+    	    credentialsId: 'Nexus',
+	        groupId: 'ci.jenkins.aws',
+	        nexusUrl: '3.15.12.29:8081',
+	        nexusVersion: 'nexus3',
+	        protocol: 'http',
+	        repository: 'devopsbc3',
+	        version: '1.0-RAMA'
+            }
+        }
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Uplocad to Artifact successfull!!"
+            }
+        }
+    
+        stage('Deploy to Test') {
+            steps {
+                deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://172.31.92.162:8080/')], contextPath: '/mywebapp', war: '**/project-1.0-RAMA.war'
+            }
+        }
+        
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Deploy to test successfull!!"
+            }
+        }
+               
+		stage('Deploy to Prod') {
+            steps {
+                deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://34.238.232.255:8080/')], contextPath: '/mywebapp', war: '**/project-1.0-RAMA.war'
+            }
+        }
+        
+        stage('Slack') {
+            steps {
+                slackSend channel: "devopsbc3assignment", message: "SQUAD1 - Deploy to Prod successfull!!"
+            }
+        }
+        
+        
+    }
+}
